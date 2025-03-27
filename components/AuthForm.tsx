@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/button"
 import {
     Form
 } from "@/components/ui/form"
+import { auth } from "@/firebase/client"
+import { signIn, signUp } from "@/lib/actions/auth.action"
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -38,15 +41,42 @@ const AuthForm = ({ type }: { type: FormType }) => {
     })
 
 
-    function onSubmit(values: z.infer<typeof formSchema>) {
+    async function onSubmit(values: z.infer<typeof formSchema>) {
         try {
             if (type === "sign-up") {
+                const { name, email, password } = values;
+                const userCredentails = await createUserWithEmailAndPassword(auth, email, password);
+
+                const result = await signUp({
+                    uid: userCredentails.user.uid,
+                    name: name!,
+                    email,
+                    password
+                })
+                if (!result?.success) {
+                    toast.error(result?.message);
+                }
+
                 toast.success("Account Created");
-                console.log("SIGN-UP", values);
                 router.push("/sign-in");
             } else {
+                const { email, password } = values;
+                const userCredentails = await signInWithEmailAndPassword(auth, email, password);
+
+                const idToken = await userCredentails.user.getIdToken();
+                if (!idToken) {
+                    toast.error('Sign in failed');
+                    return;
+                }
+                const result = await signIn({
+                    email,
+                    idToken
+                })
+                if (!result?.success) {
+                    toast.error(result?.message);
+                }
+
                 toast.success("Sign in successfully");
-                console.log("SIGN-IN", values);
                 router.push("/");
             }
         } catch (error) {
